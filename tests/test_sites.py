@@ -110,7 +110,24 @@ class TestHandlersForStandaloneMode(object):
     def test_get_course_enrollments_for_site(self):
         expected_ce = [CourseEnrollmentFactory() for i in range(3)]
         with mock.patch('figures.settings.env_tokens', self.env_tokens):
-            course_enrollments = figures.sites.get_course_enrollments_for_site(self.site)
+            course_enrollments = figures.sites.get_course_enrollments(self.site)
+            assert set([ce.id for ce in course_enrollments]) == set(
+                       [ce.id for ce in expected_ce])
+
+    def test_get_course_enrollments_for_site_and_user(self):
+        course_overviews = [CourseOverviewFactory() for i in range(2)]
+        users = [UserFactory() for i in range(2)]
+        expected_ce = [
+            CourseEnrollmentFactory(
+                course_id=co.id, user=users[0]
+                ) for co in course_overviews
+        ]
+        unexpected_ce = [CourseEnrollmentFactory(
+            course_id=course_overviews[0].id,
+            user=users[1])]
+        with mock.patch('figures.settings.env_tokens', self.env_tokens):
+            course_enrollments = figures.sites.get_course_enrollments(
+                self.site, users[0])
             assert set([ce.id for ce in course_enrollments]) == set(
                        [ce.id for ce in expected_ce])
 
@@ -204,7 +221,7 @@ class TestHandlersForMultisiteMode(object):
                                       course_id=str(course_overview.id))
             expected_ce = [CourseEnrollmentFactory(
                 course_id=course_overview.id) for i in range(ce_count)]
-            course_enrollments = figures.sites.get_course_enrollments_for_site(self.site)
+            course_enrollments = figures.sites.get_course_enrollments(self.site)
             assert set([ce.id for ce in course_enrollments]) == set(
                        [ce.id for ce in expected_ce])
 

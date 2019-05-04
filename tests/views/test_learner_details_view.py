@@ -45,7 +45,7 @@ from student.models import CourseEnrollment
 
 from figures.helpers import as_course_key
 from figures.serializers import LearnerCourseDetailsSerializer
-from figures.sites import get_course_enrollments_for_site
+from figures.sites import get_course_enrollments
 from figures.views import LearnerDetailsViewSet
 import figures.settings
 
@@ -154,7 +154,7 @@ class TestLearnerDetailsViewSet(BaseViewTest):
         '''
 
         # Spot test with the first CourseEnrollment for the first user
-        enrollments = get_course_enrollments_for_site(self.site)
+        enrollments = get_course_enrollments(self.site)
         queryset = enrollments.filter(user=self.users[0])
         serializer = LearnerCourseDetailsSerializer(queryset[0])
         assert serializer.data
@@ -205,7 +205,7 @@ class TestLearnerDetailsViewSet(BaseViewTest):
 
             results = response.data['results']
             assert len(results) == len(self.users)
-            enrollments = get_course_enrollments_for_site(self.site)
+            enrollments = get_course_enrollments(self.site)
             assert enrollments.count() == len(self.course_enrollments)
 
             for rec in results:

@@ -718,7 +718,7 @@ class LearnerDetailsSerializer(serializers.ModelSerializer):
 
         """
 
-        course_enrollments = figures.sites.get_course_enrollments_for_site(
+        course_enrollments = figures.sites.get_course_enrollments(
             self.context.get('site')).filter(user=user)
         return LearnerCourseDetailsSerializer(course_enrollments, many=True).data
 

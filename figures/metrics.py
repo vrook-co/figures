@@ -340,7 +340,7 @@ def get_total_site_courses_for_time_period(site, start_date, end_date,
             created__lt=next_day(end_date),
         )
         # First get all the course enrollments for the site
-        ce = figures.sites.get_course_enrollments_for_site(site)
+        ce = figures.sites.get_course_enrollments(site)
         # Then filter on the time period
         return ce.filter(
             **filter_args).values('course_id').distinct().count()

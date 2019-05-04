@@ -167,7 +167,7 @@ class CourseEnrollmentViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = figures.sites.get_course_enrollments_for_site(site)
+        queryset = figures.sites.get_course_enrollments(site)
         return queryset
 
 

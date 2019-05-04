@@ -115,6 +115,9 @@ def get_users_for_site(site):
     return users
 
 
-def get_course_enrollments_for_site(site):
+def get_course_enrollments(site, user=None):
     course_keys = get_course_keys_for_site(site)
-    return CourseEnrollment.objects.filter(course_id__in=course_keys)
+    filter_args = dict(course_id__in=course_keys)
+    if user:
+        filter_args.update(dict(user=user))
+    return CourseEnrollment.objects.filter(**filter_args)
