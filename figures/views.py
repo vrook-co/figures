@@ -49,7 +49,9 @@ from figures.serializers import (
     SiteDailyMetricsSerializer,
     SiteSerializer,
     UserIndexSerializer,
-    GeneralUserDataSerializer
+    GeneralUserDataSerializer,
+    UserReportSerializer,
+    LegacyEnrollmentReportSerializer,
 )
 from figures import metrics
 from figures.pagination import FiguresLimitOffsetPagination
@@ -122,6 +124,50 @@ class StaffUserOnDefaultSiteAuthMixin(object):
         figures.permissions.IsStaffUserOnDefaultSite,
     )
 
+
+class BaseSiteUserReadOnlyViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
+    """
+    Provides common site isolated read only user model viewset.
+    To use, create a subclass and specify the serializer
+
+    ```
+    class MyCustomUserDataViewSet(BaseSiteUserReadOnlyViewSet):
+        serializer_class = MyCustomUserDataSerializer
+    ```
+    """
+    model = get_user_model()
+    pagination_class = FiguresLimitOffsetPagination
+    filter_backends = (DjangoFilterBackend, )
+    filter_class = UserFilterSet
+
+    def get_queryset(self):
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        queryset = figures.sites.get_users_for_site(site)
+        return queryset
+
+    def get_serializer_context(self):
+        context = super(BaseSiteUserReadOnlyViewSet, self).get_serializer_context()
+        context['site'] = django.contrib.sites.shortcuts.get_current_site(self.request)
+        return context
+
+
+class BaseSiteEnrollmentReadOnlyViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
+    model = CourseEnrollment
+    pagination_class = FiguresLimitOffsetPagination
+    # serializer_class = CourseEnrollmentSerializer
+    filter_backends = (DjangoFilterBackend, )
+    filter_class = CourseEnrollmentFilter
+
+    def get_queryset(self):
+        site = django.contrib.sites.shortcuts.get_current_site(self.request)
+        queryset = figures.sites.get_course_enrollments_for_site(site)
+        return queryset
+
+    def get_serializer_context(self):
+        context = super(BaseSiteEnrollmentReadOnlyViewSet, self).get_serializer_context()
+        context['site'] = django.contrib.sites.shortcuts.get_current_site(self.request)
+        return context
+
 #
 # Views for data in edX platform
 #
@@ -157,34 +203,41 @@ class CoursesIndexViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
         return queryset
 
 
-class UserIndexViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
-    '''Provides a list of users with abbreviated details
-
-    Uses figures.filters.UserFilter to select subsets of User objects
-    '''
-    model = get_user_model()
-    pagination_class = FiguresLimitOffsetPagination
+class UserIndexViewSet(BaseSiteUserReadOnlyViewSet):
     serializer_class = UserIndexSerializer
-    filter_backends = (DjangoFilterBackend, )
-    filter_class = UserFilterSet
-
-    def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = figures.sites.get_users_for_site(site)
-        return queryset
 
 
-class CourseEnrollmentViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
-    model = CourseEnrollment
-    pagination_class = FiguresLimitOffsetPagination
+# class UserIndexViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
+#     '''Provides a list of users with abbreviated details
+
+#     Uses figures.filters.UserFilter to select subsets of User objects
+#     '''
+#     model = get_user_model()
+#     pagination_class = FiguresLimitOffsetPagination
+#     serializer_class = UserIndexSerializer
+#     filter_backends = (DjangoFilterBackend, )
+#     filter_class = UserFilterSet
+
+#     def get_queryset(self):
+#         site = django.contrib.sites.shortcuts.get_current_site(self.request)
+#         queryset = figures.sites.get_users_for_site(site)
+#         return queryset
+
+class CourseEnrollmentViewSet(BaseSiteEnrollmentReadOnlyViewSet):
     serializer_class = CourseEnrollmentSerializer
-    filter_backends = (DjangoFilterBackend, )
-    filter_class = CourseEnrollmentFilter
 
-    def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = figures.sites.get_course_enrollments_for_site(site)
-        return queryset
+
+# class CourseEnrollmentViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
+#     model = CourseEnrollment
+#     pagination_class = FiguresLimitOffsetPagination
+#     serializer_class = CourseEnrollmentSerializer
+#     filter_backends = (DjangoFilterBackend, )
+#     filter_class = CourseEnrollmentFilter
+
+#     def get_queryset(self):
+#         site = django.contrib.sites.shortcuts.get_current_site(self.request)
+#         queryset = figures.sites.get_course_enrollments_for_site(site)
+#         return queryset
 
 #
 # Views for Figures models
@@ -312,8 +365,31 @@ class CourseDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
         return Response(CourseDetailsSerializer(course_overview).data)
 
 
-class GeneralUserDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
-    '''View class to serve general user data to the Figures UI
+# class GeneralUserDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
+#     '''View class to serve general user data to the Figures UI
+
+#     See the serializer class, GeneralUserDataSerializer for the specific fields
+#     returned
+
+#     Can filter users for a specific course by providing the 'course_id' query
+#     parameter
+
+#     TODO: Make this class and any other User model based viewsets inherit a
+#     base. The only difference between them is the serializer
+#     '''
+#     model = get_user_model()
+#     pagination_class = FiguresLimitOffsetPagination
+#     serializer_class = GeneralUserDataSerializer
+#     filter_backends = (DjangoFilterBackend, )
+#     filter_class = UserFilterSet
+
+#     def get_queryset(self):
+#         site = django.contrib.sites.shortcuts.get_current_site(self.request)
+#         queryset = figures.sites.get_users_for_site(site)
+#         return queryset
+
+class GeneralUserDataViewSet(BaseSiteUserReadOnlyViewSet):
+    """View class to serve general user data to the Figures UI
 
     See the serializer class, GeneralUserDataSerializer for the specific fields
     returned
@@ -323,35 +399,16 @@ class GeneralUserDataViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
 
     TODO: Make this class and any other User model based viewsets inherit a
     base. The only difference between them is the serializer
-    '''
-    model = get_user_model()
-    pagination_class = FiguresLimitOffsetPagination
+    """
     serializer_class = GeneralUserDataSerializer
-    filter_backends = (DjangoFilterBackend, )
-    filter_class = UserFilterSet
-
-    def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = figures.sites.get_users_for_site(site)
-        return queryset
 
 
-class LearnerDetailsViewSet(CommonAuthMixin, viewsets.ReadOnlyModelViewSet):
-    model = get_user_model()
-    pagination_class = FiguresLimitOffsetPagination
+class LearnerDetailsViewSet(BaseSiteUserReadOnlyViewSet):
     serializer_class = LearnerDetailsSerializer
-    filter_backends = (DjangoFilterBackend, )
-    filter_class = UserFilterSet
 
-    def get_queryset(self):
-        site = django.contrib.sites.shortcuts.get_current_site(self.request)
-        queryset = figures.sites.get_users_for_site(site)
-        return queryset
 
-    def get_serializer_context(self):
-        context = super(LearnerDetailsViewSet, self).get_serializer_context()
-        context['site'] = django.contrib.sites.shortcuts.get_current_site(self.request)
-        return context
+class UserReportViewSet(BaseSiteUserReadOnlyViewSet):
+    serializer_class = UserReportSerializer
 
 
 class SiteViewSet(StaffUserOnDefaultSiteAuthMixin, viewsets.ReadOnlyModelViewSet):
@@ -365,3 +422,7 @@ class SiteViewSet(StaffUserOnDefaultSiteAuthMixin, viewsets.ReadOnlyModelViewSet
     serializer_class = SiteSerializer
     filter_backends = (DjangoFilterBackend, )
     filter_class = SiteFilterSet
+
+
+class EnrollmentReportViewSet(BaseSiteEnrollmentReadOnlyViewSet):
+    serializer_class = LegacyEnrollmentReportSerializer

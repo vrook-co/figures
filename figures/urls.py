@@ -62,6 +62,17 @@ router.register(
     base_name='users-detail')
 
 
+router.register(
+    r'reports/users',
+    views.UserReportViewSet,
+    base_name='reports-users')
+
+router.register(
+    r'reports/enrollments',
+    views.EnrollmentReportViewSet,
+    base_name='reports-enrollments')
+
+
 # TODO: Consider changing this path to be 'users' or 'users/summary'
 # So that all user data fall under the same root path
 
