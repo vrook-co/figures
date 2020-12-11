@@ -3,12 +3,19 @@
 Filters are in this module because they are specific to the admin console
 """
 
+from __future__ import absolute_import
 from django.contrib import admin
 from django.contrib.admin.filters import (
     AllValuesFieldListFilter,
     RelatedOnlyFieldListFilter)
-from django.core.urlresolvers import reverse
 from django.utils.html import format_html
+
+try:
+    # Django 2.0+
+    from django.urls import reverse
+except ImportError:
+    # Django <1.9
+    from django.core.urlresolvers import reverse
 
 import figures.models
 
@@ -58,6 +65,27 @@ class SiteMonthlyMetricsAdmin(admin.ModelAdmin):
     list_filter = (
         ('site', RelatedOnlyDropdownFilter),
         'month_for')
+
+
+@admin.register(figures.models.EnrollmentData)
+class EnrollmentDataAdmin(admin.ModelAdmin):
+    """Defines the admin interface for the EnrollmentData model
+    """
+    list_display = (
+        'id', 'site', 'user_link', 'course_id', 'date_for', 'date_enrolled',
+        'is_enrolled', 'is_completed', 'progress_percent', 'points_possible',
+        'points_earned', 'sections_worked', 'sections_possible'
+    )
+    read_only_fields = ('site', 'user', 'user_link', 'course_id')
+
+    def user_link(self, obj):
+        if obj.user:
+            return format_html(
+                '<a href="{}">{}</a>',
+                reverse("admin:auth_user_change", args=(obj.user.pk,)),
+                obj.user.email)
+        else:
+            return 'Missing user'
 
 
 @admin.register(figures.models.LearnerCourseGradeMetrics)

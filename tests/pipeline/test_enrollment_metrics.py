@@ -1,12 +1,12 @@
 
+from __future__ import absolute_import
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import mock
 import pytest
 
 from django.utils.timezone import utc
-
-from courseware.models import StudentModule
+from figures.compat import StudentModule
 
 from figures.helpers import is_multisite
 from figures.models import LearnerCourseGradeMetrics
@@ -15,7 +15,7 @@ from figures.pipeline.enrollment_metrics import (
     bulk_calculate_course_progress_data,
     collect_metrics_for_enrollment,
     _enrollment_metrics_needs_update,
-    _add_enrollment_metrics_record,
+    _new_enrollment_metrics_record,
     _collect_progress_data,
 )
 from figures.sites import UnlinkedCourseError
@@ -27,6 +27,7 @@ from tests.factories import (
     SiteFactory,
     StudentModuleFactory,
 )
+from six.moves import range
 
 
 @pytest.mark.django_db
@@ -210,7 +211,7 @@ class TestCollectMetricsForEnrollment(object):
         assert metrics != lcgm
 
         # This works because we pick dates in the past. Better is to  fix this
-        # by either using freezegun or monkeypatching `_add_enrollment_metrics_record
+        # by either using freezegun or monkeypatching `_new_enrollment_metrics_record
         assert metrics.date_for >= self.date_2.date()
 
     def test_does_not_need_update(self, monkeypatch):
@@ -322,7 +323,7 @@ class TestEnrollmentMetricsUpdateCheck(object):
 
 @pytest.mark.django_db
 class TestAddEnrollmentMetricsRecord(object):
-    """Tests the `_add_enrollment_metrics_record` function
+    """Tests the `_new_enrollment_metrics_record` function
 
     """
     @pytest.fixture(autouse=True)
@@ -340,7 +341,7 @@ class TestAddEnrollmentMetricsRecord(object):
             count=22,  # sections possible
             sections_worked=11
         )
-        obj = _add_enrollment_metrics_record(site=self.site,
+        obj = _new_enrollment_metrics_record(site=self.site,
                                              course_enrollment=self.course_enrollment,
                                              progress_data=progress_data,
                                              date_for=self.date_for)

@@ -2,6 +2,7 @@
 Figures Celery tasks. Initially this module contains tasks for the ETL pipeline.
 
 '''
+from __future__ import absolute_import
 import datetime
 import time
 
@@ -15,6 +16,7 @@ from celery.utils.log import get_task_logger
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview  # noqa pylint: disable=import-error
 from student.models import CourseEnrollment  # pylint: disable=import-error
 
+from figures.backfill import backfill_enrollment_data_for_site
 from figures.helpers import as_course_key, as_date
 from figures.log import log_exec_time
 from figures.models import PipelineError
@@ -24,6 +26,7 @@ import figures.sites
 from figures.pipeline.mau_pipeline import collect_course_mau
 from figures.pipeline.site_monthly_metrics import fill_last_month as fill_last_smm_month
 from figures.pipeline.logger import log_error_to_db
+import six
 
 
 logger = get_task_logger(__name__)
@@ -72,7 +75,24 @@ def populate_site_daily_metrics(site_id, **kwargs):
         force_update=kwargs.get('force_update', False),
         )
     logger.debug(
-        'done running populate_site_daily_metrics for site_id={}"'.format(site_id))
+        'done running populate_site_daily_metrics for site_id={}'.format(site_id))
+
+
+@shared_task
+def update_enrollment_data(site_id, **_kwargs):
+    """
+    This can be an expensive task as it iterates over all th
+    """
+    try:
+        site = Site.objects.get(id=site_id)
+        results = backfill_enrollment_data_for_site(site)
+        if results.get('errors'):
+            for rec in results['errors']:
+                logger.error('figures.tasks.update_enrollment_data. Error:{}'.format(rec))
+    except Site.DoesNotExist:
+        logger.error(
+            'figurs.tasks.update_enrollment_data: site_id={} does not exist'.format(
+                site_id))
 
 
 @shared_task
@@ -133,6 +153,10 @@ def populate_daily_metrics(date_for=None, force_update=False):
             site_id=site.id,
             date_for=date_for,
             force_update=force_update)
+
+        # Until we implement signal triggers
+        update_enrollment_data(site_id=site.id)
+
         logger.info("figures.populate_daily_metrics: finished Site {:04d} of {:04d}".format(
             i, sites_count))
 
@@ -176,7 +200,7 @@ def experimental_populate_daily_metrics(date_for=None, force_update=False):
     courses = CourseOverview.objects.all()
     cdm_tasks = [
         populate_single_cdm.s(
-            course_id=unicode(course.id),  # noqa: F821
+            course_id=six.text_type(course.id),  # noqa: F821
             date_for=date_for,
             force_update=force_update) for course in courses if include_course(course)
     ]
